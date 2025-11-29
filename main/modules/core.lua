@@ -3,7 +3,7 @@ local core = {}
 
 local Players = game:GetService("Players")
 local Rep = game:GetService("ReplicatedStorage")
-local player = Players.LocalPlayer
+local player = Players.LocalPlayer or Players.PlayerAdded:Wait()
 
 local BridgeNet = Rep:WaitForChild("BridgeNet2")
 local id = BridgeNet:WaitForChild("identifierStorage")
