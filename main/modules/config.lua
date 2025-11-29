@@ -21,8 +21,8 @@ function config.SetAutoExec(val)
 end
 
 config.URL = {
-    Loader = "https://raw.githubusercontent.com/TeamB-dot/main/refs/heads/main/loader.lua",
-    Base   = "https://raw.githubusercontent.com/TeamB-dot/main/refs/heads/main/modules/"
+    Loader = "https://raw.githubusercontent.com/TeamB-dot/main/refs/heads/main/main/loader.lua",
+    Base   = "https://raw.githubusercontent.com/TeamB-dot/main/refs/heads/main/main/modules/"
 }
 
 config.Farm = {
