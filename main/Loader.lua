@@ -27,6 +27,9 @@ local core     = LoadModule("core")
 local ui       = LoadModule("ui")
 local runtime  = LoadModule("runtime")
 
+-- INIT RUNTIME (WICHTIG!)
+runtime.init(config, core, ui)
+
 -- Init UI
 ui.init(config, core, runtime)
 
