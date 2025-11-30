@@ -5,7 +5,7 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
 local q = queue_on_teleport or queue_on_teleport_internal or (syn and syn.queue_on_teleport)
-local TRASH_SCRIPT_LINK = "YOUR_TRASHCAN_SCRIPT_LINK"
+local TRASH_SCRIPT_LINK = "https://raw.githubusercontent.com/TeamB-dot/main/refs/heads/main/main"
 
 local function queueNextServer()
     if getgenv().BlackAir.AutoExec and q then
