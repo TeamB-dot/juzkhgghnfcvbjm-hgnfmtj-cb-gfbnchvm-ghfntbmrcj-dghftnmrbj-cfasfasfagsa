@@ -16,6 +16,6 @@ Tab:CreateParagraph({
 Tab:CreateButton({
     Name = "Start",
     Callback = function()
-        loadstring(game:HttpGet("YOUR_AUTO_FARM_GUI_LINK"))()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/TeamB-dot/main/refs/heads/main/Farm"))()
     end,
 })
