@@ -1,0 +1,67 @@
+if not getgenv().BlackAir then getgenv().BlackAir = {} end
+
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local q = queue_on_teleport or queue_on_teleport_internal or (syn and syn.queue_on_teleport)
+local TRASH_SCRIPT_LINK = "YOUR_TRASHCAN_SCRIPT_LINK"
+
+local function queueNextServer()
+    if getgenv().BlackAir.AutoExec and q then
+        q([[
+            repeat task.wait() until game:IsLoaded()
+            loadstring(game:HttpGet("]] .. TRASH_SCRIPT_LINK .. [[", true))()
+        ]])
+    end
+end
+
+local function safeTeleport(pos)
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart")
+
+    hrp.CFrame = CFrame.new(pos + Vector3.new(0,3,0))
+    task.wait(0.25)
+end
+
+local folder = workspace:WaitForChild("Map")
+    :WaitForChild("Deko")
+    :WaitForChild("Muelleimer")
+    :WaitForChild("Folder")
+
+local function getNextContainer()
+    for _, obj in ipairs(folder:GetChildren()) do
+        if obj:IsA("Model") and obj.Name == "ContainerTonneS" then
+            return obj
+        end
+    end
+    return nil
+end
+
+while true do
+    local trash = getNextContainer()
+
+    if not trash then
+        print("Keine Trashcans mehr – Server Hop!")
+        queueNextServer()
+        TeleportService:Teleport(game.PlaceId)
+        break
+    end
+
+    local pos = trash.PrimaryPart and trash.PrimaryPart.Position
+        or trash:FindFirstChildWhichIsA("BasePart") and trash:FindFirstChildWhichIsA("BasePart").Position
+
+    if pos then
+        safeTeleport(pos)
+    end
+
+    -- Loot
+    local loot = trash:FindFirstChild("GiveLoot")
+    if loot then
+        loot:FireServer()
+    end
+
+    trash.Name = "Used_" .. trash.Name
+
+    task.wait(0.05)
+end
