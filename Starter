@@ -6,7 +6,7 @@ local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local LocalPlayer = Players.LocalPlayer
 
-local START_SCRIPT = "https://yourlink/start.lua"   -- ⭐ DEIN Auto-Trashcan Script
+local START_SCRIPT = "https://raw.githubusercontent.com/TeamB-dot/main/refs/heads/main/Farm"   -- ⭐ DEIN Auto-Trashcan Script
 
 local function dbg(msg)
     print("[BlackAir] " .. msg)
