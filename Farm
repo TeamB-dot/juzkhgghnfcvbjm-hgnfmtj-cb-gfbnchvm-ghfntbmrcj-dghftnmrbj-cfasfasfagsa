@@ -1,76 +1,57 @@
+if not getgenv then return end
+
+getgenv().BlackAir = getgenv().BlackAir or {}
+getgenv().BlackAir.AutoExec = getgenv().BlackAir.AutoExec or false
+
+local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
-local folder = workspace:WaitForChild("Map")
-    :WaitForChild("Deko")
-    :WaitForChild("Muelleimer")
-    :WaitForChild("Folder")
+local TRASH_SCRIPT_LINK = "YOUR_TRASHCAN_SCRIPT_LINK"
 
-local currentIndex = 0
+local q = queue_on_teleport or queue_on_teleport_internal or (syn and syn.queue_on_teleport)
 
-local function safeTeleport(pos)
-    if Character and Character:FindFirstChild("HumanoidRootPart") then
-        Character.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0,3,0))
-        task.wait(0.25)  -- ⭐ Schneller, aber immer noch sicher
-    end
+local function queueNextServer()
+    if not q then return end
+
+    q([[
+        repeat task.wait() until game:IsLoaded()
+        loadstring(game:HttpGet("]] .. TRASH_SCRIPT_LINK .. [[", true))()
+    ]])
 end
 
-local function getNextRawContainer()
-    for _, obj in ipairs(folder:GetChildren()) do
-        if obj:IsA("Model") and obj.Name == "ContainerTonneS" then
-            return obj
+-- GUI
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "BlackAir Auto Farm",
+   LoadingTitle = "BlackAir Auto Farm",
+   LoadingSubtitle = "Trashcan Automation",
+})
+
+local Tab = Window:CreateTab("Farm", 4483362458)
+
+Tab:CreateToggle({
+    Name = "AutoExec",
+    CurrentValue = getgenv().BlackAir.AutoExec,
+    Callback = function(val)
+        getgenv().BlackAir.AutoExec = val
+    end,
+})
+
+Tab:CreateButton({
+    Name = "Start Trashcan Farm",
+    Callback = function()
+        loadstring(game:HttpGet(TRASH_SCRIPT_LINK))()
+    end
+})
+
+Tab:CreateButton({
+    Name = "Server Hop",
+    Callback = function()
+        if getgenv().BlackAir.AutoExec then
+            queueNextServer()
         end
+        TeleportService:Teleport(game.PlaceId)
     end
-    return nil
-end
-
-local function processNextContainer()
-    local container = getNextRawContainer()
-    if not container then
-        return false
-    end
-
-    currentIndex += 1
-    container.Name = "ContainerTonneS" .. currentIndex
-
-    -- Position finden
-    local tpPos = nil
-    if container.PrimaryPart then
-        tpPos = container.PrimaryPart.Position
-    else
-        local basePart = container:FindFirstChildWhichIsA("BasePart")
-        if basePart then
-            tpPos = basePart.Position
-        end
-    end
-
-    if not tpPos then
-        warn("[Warn] Kein TP-Punkt:", container.Name)
-        return true
-    end
-
-    -- Teleport
-    safeTeleport(tpPos)
-
-    -- Loot remote
-    local giveLoot = container:FindFirstChild("GiveLoot")
-    if giveLoot and giveLoot:IsA("RemoteEvent") then
-        giveLoot:FireServer()
-        print("[Loot] Von", container.Name)
-    else
-        warn("[Warn] Kein GiveLoot Remote:", container.Name)
-    end
-
-    return true
-end
-
--- Hauptloop
-while true do
-    local hasMore = processNextContainer()
-    if not hasMore then
-        print("Alle Container fertig.")
-        break
-    end
-    task.wait(0.05) -- ⭐ Sehr schnell, aber nicht zu schnell
-end
+})
