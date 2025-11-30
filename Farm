@@ -4,62 +4,45 @@ getgenv().BlackAir = getgenv().BlackAir or {}
 getgenv().BlackAir.AutoExec = getgenv().BlackAir.AutoExec or false
 
 local TeleportService = game:GetService("TeleportService")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+local TRASH_LINK = "https://raw.githubusercontent.com/TeamB-dot/main/refs/heads/main/main"
 
--- LINK ZUM TRASHCAN SCRIPT
-local TRASH_SCRIPT_LINK = "https://raw.githubusercontent.com/TeamB-dot/main/refs/heads/main/main"
-
--- queue_on_teleport detection
-local q = queue_on_teleport or queue_on_teleport_internal or (syn and syn.queue_on_teleport)
-
-local function queueNextServer()
-    if getgenv().BlackAir.AutoExec and q then
-        q([[
-            repeat task.wait() until game:IsLoaded()
-            loadstring(game:HttpGet("]] .. TRASH_SCRIPT_LINK .. [[", true))()
-        ]])
-    end
+-- AutoExec speichern
+local function setQueued(val)
+    pcall(function()
+        writefile("blackair_queue.txt", tostring(val))
+    end)
 end
 
--- ============================================================
---   RAYFIELD GUI (FEHLERFREI)
--- ============================================================
-
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-
 local Window = Rayfield:CreateWindow({
    Name = "BlackAir Auto Farm",
    LoadingTitle = "BlackAir Auto Farm",
    LoadingSubtitle = "TrashCan Automation",
 })
 
--- ❗ WICHTIG: ICON MUSS EINE NUMBER SEIN (KEINE STRING)
 local Tab = Window:CreateTab("Farm", 4483362458)
 
--- Toggle für AutoExec
 Tab:CreateToggle({
     Name = "AutoExec",
     CurrentValue = getgenv().BlackAir.AutoExec,
-    Callback = function(val)
-        getgenv().BlackAir.AutoExec = val
+    Callback = function(v)
+        getgenv().BlackAir.AutoExec = v
+        setQueued(v)
     end,
 })
 
--- Start Trashcan Script
 Tab:CreateButton({
     Name = "Start Trashcan Farm",
     Callback = function()
-        loadstring(game:HttpGet(TRASH_SCRIPT_LINK))()
+        loadstring(game:HttpGet(TRASH_LINK))()
     end
 })
 
--- Server Hop Button
 Tab:CreateButton({
     Name = "Server Hop",
     Callback = function()
         if getgenv().BlackAir.AutoExec then
-            queueNextServer()
+            setQueued(true)
         end
         TeleportService:Teleport(game.PlaceId)
     end
