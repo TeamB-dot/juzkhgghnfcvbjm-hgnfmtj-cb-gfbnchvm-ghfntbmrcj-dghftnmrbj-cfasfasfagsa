@@ -1,0 +1,76 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+
+local folder = workspace:WaitForChild("Map")
+    :WaitForChild("Deko")
+    :WaitForChild("Muelleimer")
+    :WaitForChild("Folder")
+
+local currentIndex = 0
+
+local function safeTeleport(pos)
+    if Character and Character:FindFirstChild("HumanoidRootPart") then
+        Character.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0,3,0))
+        task.wait(0.25)  -- ⭐ Schneller, aber immer noch sicher
+    end
+end
+
+local function getNextRawContainer()
+    for _, obj in ipairs(folder:GetChildren()) do
+        if obj:IsA("Model") and obj.Name == "ContainerTonneS" then
+            return obj
+        end
+    end
+    return nil
+end
+
+local function processNextContainer()
+    local container = getNextRawContainer()
+    if not container then
+        return false
+    end
+
+    currentIndex += 1
+    container.Name = "ContainerTonneS" .. currentIndex
+
+    -- Position finden
+    local tpPos = nil
+    if container.PrimaryPart then
+        tpPos = container.PrimaryPart.Position
+    else
+        local basePart = container:FindFirstChildWhichIsA("BasePart")
+        if basePart then
+            tpPos = basePart.Position
+        end
+    end
+
+    if not tpPos then
+        warn("[Warn] Kein TP-Punkt:", container.Name)
+        return true
+    end
+
+    -- Teleport
+    safeTeleport(tpPos)
+
+    -- Loot remote
+    local giveLoot = container:FindFirstChild("GiveLoot")
+    if giveLoot and giveLoot:IsA("RemoteEvent") then
+        giveLoot:FireServer()
+        print("[Loot] Von", container.Name)
+    else
+        warn("[Warn] Kein GiveLoot Remote:", container.Name)
+    end
+
+    return true
+end
+
+-- Hauptloop
+while true do
+    local hasMore = processNextContainer()
+    if not hasMore then
+        print("Alle Container fertig.")
+        break
+    end
+    task.wait(0.05) -- ⭐ Sehr schnell, aber nicht zu schnell
+end
