@@ -1,91 +1,206 @@
+-- Robust Trashcan Farm (Debug + Fallbacks)
+-- Setze TRASH_LINK falls du queue beim Hop benutzen willst (optional)
 local TRASH_LINK = "https://raw.githubusercontent.com/TeamB-dot/main/refs/heads/main/main"
 
--- AutoExec speichern
-local function setQueued(val)
-    pcall(function()
-        writefile("blackair_queue.txt", tostring(val))
-    end)
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+
+local function dbg(...) print("[TrashFarm]", ...) end
+
+-- Utility: safe writefile/readfile detection
+local function can_writefile()
+    return pcall(function() writefile and writefile("blackair_write_test.txt","ok") end)
+end
+local has_writefile = can_writefile()
+if has_writefile then
+    pcall(function() writefile("blackair_write_test.txt","false") end)
 end
 
+local function setQueued(val)
+    if has_writefile then
+        pcall(function() writefile("blackair_queue.txt", tostring(val)) end)
+        dbg("Queued state written:", tostring(val))
+    else
+        -- fallback: try queue_on_teleport if available
+        local q = queue_on_teleport or (syn and syn.queue_on_teleport)
+        if q and val == true then
+            dbg("writefile not available; using queue_on_teleport fallback")
+            q([[
+                repeat task.wait() until game:IsLoaded()
+                loadstring(game:HttpGet("]] .. TRASH_LINK .. [[", true))()
+            ]])
+        else
+            dbg("No writefile and no queue_on_teleport available to persist AutoExec.")
+        end
+    end
+end
+
+-- Server hop helper
 local function serverHop()
     if getgenv().BlackAir and getgenv().BlackAir.AutoExec then
         setQueued(true)
     end
-    game:GetService("TeleportService"):Teleport(game.PlaceId)
+    dbg("ServerHop triggered.")
+    TeleportService:Teleport(game.PlaceId)
 end
 
--- ============ ORIGINAL TRASH CAN SYSTEM ============
+-- Wait for character
+local function ensureCharacter()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local hrp = char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart", 5)
+    return char, hrp
+end
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+-- Robust search for the folder or containers
+local function find_folder()
+    -- 1) Exact path attempt (fast)
+    local ok, map = pcall(function() return Workspace:FindFirstChild("Map") end)
+    if ok and map then
+        local maybe = map:FindFirstChild("Deko") and map.Deko:FindFirstChild("Muelleimer") and map.Deko.Muelleimer:FindFirstChild("Folder")
+        if maybe then
+            dbg("Gefunden: Map.Deko.Muelleimer.Folder (exakter Pfad).")
+            return maybe
+        end
+    end
 
-local folder = workspace:WaitForChild("Map")
-    :WaitForChild("Deko")
-    :WaitForChild("Muelleimer")
-    :WaitForChild("Folder")
+    -- 2) Search by name for "Muelleimer" or "Muelleimer" variants
+    dbg("Exact path nicht gefunden. Scanne Workspace nach Ordnern namens 'Muelleimer' oder 'Folder'...")
+    for _, v in ipairs(Workspace:GetDescendants()) do
+        if v:IsA("Folder") or v:IsA("Model") then
+            local name = v.Name:lower()
+            if name:find("muelleimer") or name:find("muell") or name:find("trash") or name:find("mulleimer") then
+                -- if it's a folder with children, probably correct
+                if #v:GetChildren() > 0 then
+                    dbg("Gefunden (Heuristik):", v:GetFullName())
+                    return v
+                end
+            end
+        end
+    end
 
-local currentIndex = 0
+    -- 3) Fallback: suche nach Models mit Name ContainerTonneS oder mit GiveLoot Remote
+    dbg("Heuristik fehlgeschlagen. Suche nach einzelnen Container-Modellen (ContainerTonneS / GiveLoot)...")
+    local fakeFolder = Instance.new("Folder")
+    fakeFolder.Name = "BlackAir_FoundContainers"
+    for _, v in ipairs(Workspace:GetDescendants()) do
+        if v:IsA("Model") then
+            local n = v.Name
+            if n == "ContainerTonneS" or n:lower():find("container") or v:FindFirstChild("GiveLoot") then
+                v.Parent = fakeFolder
+            end
+        end
+    end
 
-local function safeTeleport(pos)
-    if Character and Character:FindFirstChild("HumanoidRootPart") then
-        Character.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0,3,0))
-        task.wait(0.25)
+    if #fakeFolder:GetChildren() > 0 then
+        dbg("Gefundene Container (als temporärer Folder). Count:", #fakeFolder:GetChildren())
+        fakeFolder.Parent = Workspace -- optional sichtbar im Explorer
+        return fakeFolder
+    else
+        fakeFolder:Destroy()
+        dbg("Keine Container gefunden.")
+        return nil
     end
 end
 
-local function getNextRawContainer()
+-- safe teleport helper
+local function safeTeleport(hrp, pos)
+    if not hrp then return false end
+    hrp.CFrame = CFrame.new(pos + Vector3.new(0,3,0))
+    task.wait(0.25)
+    return true
+end
+
+-- get next container (robust)
+local function getNextContainer(folder)
     for _, obj in ipairs(folder:GetChildren()) do
-        if obj:IsA("Model") and obj.Name == "ContainerTonneS" then
+        if obj:IsA("Model") and (obj.Name == "ContainerTonneS" or obj:FindFirstChild("GiveLoot") or obj.Name:lower():find("container")) then
             return obj
         end
     end
     return nil
 end
 
-local function processNextContainer()
-    local container = getNextRawContainer()
-    if not container then
-        return false
-    end
+-- Main
+dbg("Starte Trashcan-Farm (robust). Warte auf Map / Folder...")
+local attempts = 0
+local folder = nil
+repeat
+    folder = find_folder()
+    if folder then break end
+    attempts = attempts + 1
+    dbg("Noch kein Folder gefunden. Versuch", attempts, "- warte 2s...")
+    task.wait(2)
+until attempts > 10
 
-    currentIndex += 1
-    container.Name = "ContainerTonneS" .. currentIndex
-
-    local tpPos = nil
-    if container.PrimaryPart then
-        tpPos = container.PrimaryPart.Position
-    else
-        local basePart = container:FindFirstChildWhichIsA("BasePart")
-        if basePart then
-            tpPos = basePart.Position
-        end
-    end
-
-    if not tpPos then
-        warn("[Warn] Kein TP-Punkt:", container.Name)
-        return true
-    end
-
-    safeTeleport(tpPos)
-
-    local giveLoot = container:FindFirstChild("GiveLoot")
-    if giveLoot and giveLoot:IsA("RemoteEvent") then
-        giveLoot:FireServer()
-        print("[Loot] Von", container.Name)
-    else
-        warn("[Warn] Kein GiveLoot Remote:", container.Name)
-    end
-
-    return true
+if not folder then
+    dbg("After attempts: Kein Folder/Container gefunden. Abbruch — es wird nicht geserverhopt.")
+    -- Optional: hop anyway? Let's not hop blind; inform user.
+    return
 end
 
+-- Ensure character
+local char, hrp = ensureCharacter()
+if not hrp then
+    dbg("Kein HumanoidRootPart gefunden. Abbruch.")
+    return
+end
+
+local index = 0
 while true do
-    local hasMore = processNextContainer()
-    if not hasMore then
-        print("Alle Container fertig → Auto Server Hop")
+    local cont = getNextContainer(folder)
+    if not cont then
+        dbg("Keine weiteren Container im Folder gefunden. Fertig.")
+        -- wenn der fake-folder in Workspace erstellt wurde und heißt BlackAir_FoundContainers -> entferne es
+        if folder and folder.Name == "BlackAir_FoundContainers" then
+            pcall(function() folder:Destroy() end)
+        end
         serverHop()
         break
     end
+
+    index = index + 1
+    local contName = cont.Name
+    dbg("Verarbeite container #"..tostring(index)..":", cont:GetFullName())
+
+    local tpPos = nil
+    if cont.PrimaryPart then
+        tpPos = cont.PrimaryPart.Position
+    else
+        local base = cont:FindFirstChildWhichIsA("BasePart")
+        if base then tpPos = base.Position end
+    end
+
+    if tpPos then
+        local ok = pcall(safeTeleport, hrp, tpPos)
+        if not ok then
+            dbg("Teleport fehlgeschlagen für:", contName)
+        end
+    else
+        dbg("Kein Part gefunden zum TP für:", contName)
+    end
+
+    -- Loot
+    local give = cont:FindFirstChild("GiveLoot")
+    if give and give:IsA("RemoteEvent") then
+        pcall(function() give:FireServer() end)
+        dbg("Loot fired:", contName)
+    else
+        -- falls es anders heißt, versuche ProximityPrompt/Touch
+        local foundPrompt = cont:FindFirstChildOfClass("ProximityPrompt") or cont:FindFirstChildWhichIsA("ProximityPrompt", true)
+        if foundPrompt then
+            pcall(function() foundPrompt:InputHoldBegin() end)
+            task.wait(0.15)
+            pcall(function() foundPrompt:InputHoldEnd() end)
+            dbg("Used ProximityPrompt for:", contName)
+        else
+            dbg("Kein GiveLoot/Prompt für:", contName)
+        end
+    end
+
+    -- markiere so, dass es nicht nochmal genommen wird
+    pcall(function() cont.Name = "Used_" .. tostring(index) end)
+
     task.wait(0.05)
 end
