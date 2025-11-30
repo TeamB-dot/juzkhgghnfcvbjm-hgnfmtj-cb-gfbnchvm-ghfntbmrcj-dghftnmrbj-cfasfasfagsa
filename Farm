@@ -7,30 +7,37 @@ local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
-local TRASH_SCRIPT_LINK = "https://raw.githubusercontent.com/TeamB-dot/main/refs/heads/main/main"
+-- LINK ZUM TRASHCAN SCRIPT
+local TRASH_SCRIPT_LINK = "YOUR_TRASHCAN_SCRIPT_LINK"
 
+-- queue_on_teleport detection
 local q = queue_on_teleport or queue_on_teleport_internal or (syn and syn.queue_on_teleport)
 
 local function queueNextServer()
-    if not q then return end
-
-    q([[
-        repeat task.wait() until game:IsLoaded()
-        loadstring(game:HttpGet("]] .. TRASH_SCRIPT_LINK .. [[", true))()
-    ]])
+    if getgenv().BlackAir.AutoExec and q then
+        q([[
+            repeat task.wait() until game:IsLoaded()
+            loadstring(game:HttpGet("]] .. TRASH_SCRIPT_LINK .. [[", true))()
+        ]])
+    end
 end
 
--- GUI
+-- ============================================================
+--   RAYFIELD GUI (FEHLERFREI)
+-- ============================================================
+
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
    Name = "BlackAir Auto Farm",
    LoadingTitle = "BlackAir Auto Farm",
-   LoadingSubtitle = "Trashcan Automation",
+   LoadingSubtitle = "TrashCan Automation",
 })
 
+-- ❗ WICHTIG: ICON MUSS EINE NUMBER SEIN (KEINE STRING)
 local Tab = Window:CreateTab("Farm", 4483362458)
 
+-- Toggle für AutoExec
 Tab:CreateToggle({
     Name = "AutoExec",
     CurrentValue = getgenv().BlackAir.AutoExec,
@@ -39,13 +46,15 @@ Tab:CreateToggle({
     end,
 })
 
+-- Start Trashcan Script
 Tab:CreateButton({
     Name = "Start Trashcan Farm",
     Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/TeamB-dot/main/refs/heads/main/main"))()
+        loadstring(game:HttpGet(TRASH_SCRIPT_LINK))()
     end
 })
 
+-- Server Hop Button
 Tab:CreateButton({
     Name = "Server Hop",
     Callback = function()
